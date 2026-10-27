@@ -1,0 +1,328 @@
+{% extends 'base.html' %}
+{% block title %}Campus Analytics – AI Smart Campus{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-lg-4 py-4">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-gradient mb-1">
+                <i class="fa-solid fa-chart-line me-2"></i>Campus Intelligence Analytics
+            </h3>
+            <p class="text-muted small mb-0">Real-time attendance trends, department distributions, academic performance & resource insights</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="refreshAnalytics()">
+                <i class="fa-solid fa-arrows-rotate me-1"></i> Refresh Data
+            </button>
+        </div>
+    </div>
+
+    <!-- Metric KPI Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-3">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Total Students</span>
+                        <div class="stat-icon-pill bg-soft-primary">
+                            <i class="fa-solid fa-user-graduate text-primary"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-dark" id="kpiStudents">{{ stats.total_students }}</h3>
+                    <small class="text-success font-xs"><i class="fa-solid fa-arrow-trend-up me-1"></i> 100% Biometric Enrolled</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Faculty Staff</span>
+                        <div class="stat-icon-pill bg-soft-info">
+                            <i class="fa-solid fa-chalkboard-user text-info"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-dark" id="kpiFaculty">{{ stats.total_faculty }}</h3>
+                    <small class="text-muted font-xs">Across 5 Departments</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Campus Attendance Rate</span>
+                        <div class="stat-icon-pill bg-soft-success">
+                            <i class="fa-solid fa-chart-pie text-success"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-success" id="kpiAttendance">{{ stats.campus_attendance_rate }}%</h3>
+                    <div class="progress progress-thin mb-1">
+                        <div class="progress-bar bg-success" style="width: {{ stats.campus_attendance_rate }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Active Courses</span>
+                        <div class="stat-icon-pill bg-soft-warning">
+                            <i class="fa-solid fa-book text-warning"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-dark" id="kpiCourses">{{ stats.total_courses }}</h3>
+                    <small class="text-muted font-xs">Curriculum 2026–2027</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 1: Attendance Trends & Department Distribution -->
+    <div class="row g-4 mb-4">
+        <!-- Attendance Trends Line Chart -->
+        <div class="col-lg-8">
+            <div class="card card-glass border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-3 px-4">
+                    <h5 class="fw-bold mb-0">
+                        <i class="fa-solid fa-chart-area text-primary me-2"></i>Campus Attendance Trajectory
+                    </h5>
+                    <span class="badge bg-soft-primary text-primary">Daily Verification</span>
+                </div>
+                <div class="card-body px-4 pt-2">
+                    <div style="height: 320px;">
+                        <canvas id="attendanceTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Department Distribution Doughnut Chart -->
+        <div class="col-lg-4">
+            <div class="card card-glass border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-3 px-4">
+                    <h5 class="fw-bold mb-0">
+                        <i class="fa-solid fa-chart-pie text-info me-2"></i>Department Distribution
+                    </h5>
+                </div>
+                <div class="card-body px-4 pt-2 d-flex flex-column align-items-center justify-content-center">
+                    <div style="height: 280px; width: 100%;">
+                        <canvas id="departmentChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 2: CGPA Breakdown & Subject Attendance Comparison -->
+    <div class="row g-4">
+        <!-- Academic Performance / CGPA Bar Chart -->
+        <div class="col-lg-6">
+            <div class="card card-glass border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-3 px-4">
+                    <h5 class="fw-bold mb-0">
+                        <i class="fa-solid fa-graduation-cap text-success me-2"></i>Student CGPA Academic Distribution
+                    </h5>
+                    <span class="badge bg-soft-success text-success">Academic Performance</span>
+                </div>
+                <div class="card-body px-4 pt-2">
+                    <div style="height: 280px;">
+                        <canvas id="cgpaChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Course Attendance Performance Chart -->
+        <div class="col-lg-6">
+            <div class="card card-glass border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-3 px-4">
+                    <h5 class="fw-bold mb-0">
+                        <i class="fa-solid fa-bars-progress text-warning me-2"></i>Course-Wise Attendance Average
+                    </h5>
+                    <span class="badge bg-soft-warning text-warning">75% Threshold Line</span>
+                </div>
+                <div class="card-body px-4 pt-2">
+                    <div style="height: 280px;">
+                        <canvas id="courseAttendanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let trendChartInst = null;
+let deptChartInst = null;
+let cgpaChartInst = null;
+let courseChartInst = null;
+
+async function loadAnalyticsData() {
+    try {
+        const response = await fetch('/api/analytics-data');
+        const data = await response.json();
+
+        renderTrendChart(data.trend);
+        renderDeptChart(data.departments);
+        renderCgpaChart(data.cgpa);
+        renderCourseChart(data.courses);
+    } catch (e) {
+        console.error("Failed to load analytics data:", e);
+    }
+}
+
+function renderTrendChart(trend) {
+    const ctx = document.getElementById('attendanceTrendChart').getContext('2d');
+    if (trendChartInst) trendChartInst.destroy();
+
+    trendChartInst = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: trend.dates,
+            datasets: [
+                {
+                    label: 'Present Students',
+                    data: trend.present,
+                    borderColor: '#2563eb',
+                    backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: '#2563eb',
+                    pointRadius: 4
+                },
+                {
+                    label: 'Absences',
+                    data: trend.absent,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    fill: true,
+                    tension: 0.35,
+                    pointBackgroundColor: '#ef4444',
+                    pointRadius: 3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'top' }
+            },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+
+function renderDeptChart(depts) {
+    const ctx = document.getElementById('departmentChart').getContext('2d');
+    if (deptChartInst) deptChartInst.destroy();
+
+    deptChartInst = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: depts.labels,
+            datasets: [{
+                data: depts.values,
+                backgroundColor: [
+                    '#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#8b5cf6'
+                ],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { position: 'bottom', labels: { boxWidth: 12 } }
+            },
+            cutout: '68%'
+        }
+    });
+}
+
+function renderCgpaChart(cgpa) {
+    const ctx = document.getElementById('cgpaChart').getContext('2d');
+    if (cgpaChartInst) cgpaChartInst.destroy();
+
+    cgpaChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: cgpa.labels,
+            datasets: [{
+                label: 'Number of Students',
+                data: cgpa.values,
+                backgroundColor: [
+                    '#10b981', '#3b82f6', '#06b6d4', '#f59e0b'
+                ],
+                borderRadius: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
+                x: { grid: { display: false } }
+            }
+        }
+    });
+}
+
+function renderCourseChart(courses) {
+    const ctx = document.getElementById('courseAttendanceChart').getContext('2d');
+    if (courseChartInst) courseChartInst.destroy();
+
+    courseChartInst = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: courses.labels,
+            datasets: [{
+                label: 'Attendance Rate (%)',
+                data: courses.values,
+                backgroundColor: courses.values.map(val => val >= 75 ? '#2563eb' : '#ef4444'),
+                borderRadius: 6
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false }
+            },
+            scales: {
+                x: {
+                    min: 0,
+                    max: 100,
+                    ticks: { callback: v => v + '%' },
+                    grid: { color: '#f1f5f9' }
+                },
+                y: { grid: { display: false } }
+            }
+        }
+    });
+}
+
+function refreshAnalytics() {
+    loadAnalyticsData();
+}
+
+document.addEventListener('DOMContentLoaded', loadAnalyticsData);
+</script>
+{% endblock %}

@@ -1,0 +1,144 @@
+{% extends 'base.html' %}
+{% block title %}Register Account – AI Smart Campus{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-9 col-lg-7">
+            <div class="card card-glass shadow-lg border-0 p-4 p-md-5">
+                <div class="text-center mb-4">
+                    <div class="login-brand-icon mx-auto mb-3">
+                        <i class="fa-solid fa-user-plus"></i>
+                    </div>
+                    <h3 class="fw-bold text-gradient mb-1">Create an Account</h3>
+                    <p class="text-muted small">Register for campus intelligence access, smart attendance & portal services</p>
+                </div>
+
+                <form method="POST" action="{{ url_for('register') }}">
+                    <div class="row g-3">
+                        <!-- Role Selection -->
+                        <div class="col-12">
+                            <label class="form-label text-secondary small fw-bold">Select Role</label>
+                            <div class="d-flex gap-3">
+                                <div class="form-check role-radio-card flex-fill text-center p-3 border rounded-3">
+                                    <input class="form-check-input d-none" type="radio" name="role" id="roleStudent" value="student" checked onchange="toggleStudentFields(true)">
+                                    <label class="form-check-label w-100 cursor-pointer" for="roleStudent">
+                                        <i class="fa-solid fa-user-graduate fs-4 text-info d-block mb-1"></i>
+                                        <span class="fw-bold d-block">Student</span>
+                                    </label>
+                                </div>
+                                <div class="form-check role-radio-card flex-fill text-center p-3 border rounded-3">
+                                    <input class="form-check-input d-none" type="radio" name="role" id="roleFaculty" value="faculty" onchange="toggleStudentFields(false)">
+                                    <label class="form-check-label w-100 cursor-pointer" for="roleFaculty">
+                                        <i class="fa-solid fa-chalkboard-user fs-4 text-primary d-block mb-1"></i>
+                                        <span class="fw-bold d-block">Faculty</span>
+                                    </label>
+                                </div>
+                                <div class="form-check role-radio-card flex-fill text-center p-3 border rounded-3">
+                                    <input class="form-check-input d-none" type="radio" name="role" id="roleAdmin" value="admin" onchange="toggleStudentFields(false)">
+                                    <label class="form-check-label w-100 cursor-pointer" for="roleAdmin">
+                                        <i class="fa-solid fa-shield-halved fs-4 text-dark d-block mb-1"></i>
+                                        <span class="fw-bold d-block">Admin</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Full Name -->
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">Full Name</label>
+                            <input type="text" name="name" class="form-control" placeholder="e.g. Aarav Sharma" required>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">Campus Email</label>
+                            <input type="email" name="email" class="form-control" placeholder="e.g. name@campus.ai" required>
+                        </div>
+
+                        <!-- Roll Number (for students) -->
+                        <div class="col-md-6" id="rollNumberGroup">
+                            <label class="form-label text-secondary small fw-bold">Roll / Register Number</label>
+                            <input type="text" name="roll_number" id="rollInput" class="form-control" placeholder="e.g. CS2026009" required>
+                        </div>
+
+                        <!-- Phone -->
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">Contact Number</label>
+                            <input type="tel" name="phone" class="form-control" placeholder="+91 98765 43210">
+                        </div>
+
+                        <!-- Department -->
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">Department</label>
+                            <select name="department" class="form-select">
+                                <option value="Computer Science & Engineering">Computer Science & Engineering</option>
+                                <option value="Artificial Intelligence & Data Science">Artificial Intelligence & Data Science</option>
+                                <option value="Electronics & Communication">Electronics & Communication</option>
+                                <option value="Information Technology">Information Technology</option>
+                                <option value="Mechanical Engineering">Mechanical Engineering</option>
+                            </select>
+                        </div>
+
+                        <!-- Semester (for students) -->
+                        <div class="col-md-6" id="semesterGroup">
+                            <label class="form-label text-secondary small fw-bold">Current Semester</label>
+                            <select name="semester" class="form-select">
+                                <option value="1">Semester 1</option>
+                                <option value="2">Semester 2</option>
+                                <option value="3">Semester 3</option>
+                                <option value="4">Semester 4</option>
+                                <option value="5">Semester 5</option>
+                                <option value="6" selected>Semester 6</option>
+                                <option value="7">Semester 7</option>
+                                <option value="8">Semester 8</option>
+                            </select>
+                        </div>
+
+                        <!-- Password -->
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">Password</label>
+                            <input type="password" name="password" class="form-control" placeholder="Create password" required>
+                        </div>
+
+                        <!-- Confirm Password -->
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small fw-bold">Confirm Password</label>
+                            <input type="password" name="confirm_password" class="form-control" placeholder="Re-enter password" required>
+                        </div>
+                    </div>
+
+                    <div class="d-grid mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg rounded-pill fw-semibold shadow-sm">
+                            <i class="fa-solid fa-circle-check me-2"></i> Complete Registration
+                        </button>
+                    </div>
+                </form>
+
+                <div class="text-center mt-4 pt-2 border-top">
+                    <span class="text-muted small">Already have an account? </span>
+                    <a href="{{ url_for('login') }}" class="small text-primary fw-bold text-decoration-none">Sign In</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleStudentFields(isStudent) {
+    const rollGrp = document.getElementById('rollNumberGroup');
+    const semGrp = document.getElementById('semesterGroup');
+    const rollInput = document.getElementById('rollInput');
+    
+    if (isStudent) {
+        rollGrp.style.display = 'block';
+        semGrp.style.display = 'block';
+        rollInput.required = true;
+    } else {
+        rollGrp.style.display = 'none';
+        semGrp.style.display = 'none';
+        rollInput.required = false;
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}Notices & Announcements – AI Smart Campus{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-lg-4 py-4">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-gradient mb-1">
+                <i class="fa-solid fa-bullhorn me-2"></i>Campus Notices & Circulars
+            </h3>
+            <p class="text-muted small mb-0">Official updates on examinations, placements, hackathons, academic schedules & guidelines</p>
+        </div>
+        {% if current_user.role in ['faculty', 'admin'] %}
+        <button class="btn btn-primary btn-sm rounded-pill px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#createNoticeModal">
+            <i class="fa-solid fa-plus me-1"></i> Post Announcement
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Filter & Search Bar -->
+    <div class="card card-glass border-0 shadow-sm mb-4">
+        <div class="card-body p-3 d-flex flex-wrap justify-content-between align-items-center gap-3">
+            <div class="d-flex flex-wrap gap-2" id="noticeCategoryFilters">
+                <button class="btn btn-sm btn-category-filter active" onclick="filterCategory('all', this)">All Notices</button>
+                <button class="btn btn-sm btn-category-filter" onclick="filterCategory('exams', this)">Exams</button>
+                <button class="btn btn-sm btn-category-filter" onclick="filterCategory('events', this)">Events & Hackathons</button>
+                <button class="btn btn-sm btn-category-filter" onclick="filterCategory('placement', this)">Placements</button>
+                <button class="btn btn-sm btn-category-filter" onclick="filterCategory('academic', this)">Academic</button>
+                <button class="btn btn-sm btn-category-filter" onclick="filterCategory('general', this)">General</button>
+            </div>
+            <div class="d-flex align-items-center" style="max-width: 320px;">
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-transparent border-end-0 text-muted">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" id="noticeSearchInput" class="form-control border-start-0" placeholder="Search notices..." onkeyup="filterNoticeCards()">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notices Cards Grid -->
+    <div class="row g-4" id="noticesContainer">
+        {% for n in notices %}
+        <div class="col-md-6 col-lg-4 notice-card-wrapper" data-category="{{ n.category|lower }}">
+            <div class="card card-glass border-0 shadow-sm h-100 p-3 p-md-4 d-flex flex-column justify-content-between">
+                <div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge badge-category-{{ n.category|lower }}">{{ n.category }}</span>
+                        <span class="badge badge-priority-{{ n.priority|lower }}">
+                            {% if n.priority == 'Urgent' %}<i class="fa-solid fa-fire me-1"></i>{% endif %}
+                            {{ n.priority }}
+                        </span>
+                    </div>
+
+                    <h5 class="fw-bold text-dark mb-2 notice-title">{{ n.title }}</h5>
+                    <p class="text-muted small notice-content mb-3" style="line-height: 1.6;">
+                        {{ n.content }}
+                    </p>
+                </div>
+
+                <div class="border-top pt-3 d-flex justify-content-between align-items-center font-xs text-muted">
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="user-avatar-xs bg-soft-primary text-primary">
+                            <i class="fa-solid fa-user-tie"></i>
+                        </div>
+                        <div>
+                            <span class="fw-bold text-dark d-block">{{ n.author_name or 'Administration' }}</span>
+                            <span class="text-muted font-xs">{{ n.created_at.split(' ')[0] if n.created_at else 'Today' }}</span>
+                        </div>
+                    </div>
+                    {% if current_user.role in ['faculty', 'admin'] %}
+                    <form method="POST" action="{{ url_for('api_delete_notification', notice_id=n.id) }}" onsubmit="return confirm('Delete this announcement?')">
+                        <button type="submit" class="btn btn-sm btn-link text-danger p-0" title="Delete notice">
+                            <i class="fa-regular fa-trash-can"></i>
+                        </button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-12 text-center py-5 text-muted">
+            <i class="fa-regular fa-bell-slash fs-1 mb-3"></i>
+            <h5>No announcements posted yet</h5>
+            <p class="small">Check back later for examination schedules, placement notices, and campus events.</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Modal: Create Notice (Faculty & Admin) -->
+{% if current_user.role in ['faculty', 'admin'] %}
+<div class="modal fade" id="createNoticeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fa-solid fa-bullhorn text-primary me-2"></i>Post New Announcement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('api_create_notification') }}">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-bold">Title</label>
+                        <input type="text" name="title" class="form-control" placeholder="e.g. Mid-Term Exam Seating Arrangement" required>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="form-label text-secondary small fw-bold">Category</label>
+                            <select name="category" class="form-select">
+                                <option value="Exams">Exams</option>
+                                <option value="Events">Events</option>
+                                <option value="Academic">Academic</option>
+                                <option value="Placement">Placement</option>
+                                <option value="General" selected>General</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label text-secondary small fw-bold">Priority</label>
+                            <select name="priority" class="form-select">
+                                <option value="Normal" selected>Normal</option>
+                                <option value="High">High</option>
+                                <option value="Urgent">Urgent</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-bold">Target Audience</label>
+                        <select name="target_role" class="form-select">
+                            <option value="all" selected>All Campus (Students & Faculty)</option>
+                            <option value="student">Students Only</option>
+                            <option value="faculty">Faculty Only</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-secondary small fw-bold">Notice Content</label>
+                        <textarea name="content" class="form-control" rows="4" placeholder="Enter detailed notice information, instructions, deadlines or links..." required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-semibold">Publish Notice</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentCategory = 'all';
+
+function filterCategory(cat, btn) {
+    currentCategory = cat;
+    document.querySelectorAll('#noticeCategoryFilters .btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyFilters();
+}
+
+function filterNoticeCards() {
+    applyFilters();
+}
+
+function applyFilters() {
+    const searchVal = document.getElementById('noticeSearchInput').value.toLowerCase();
+    const cards = document.querySelectorAll('.notice-card-wrapper');
+
+    cards.forEach(card => {
+        const cat = card.getAttribute('data-category');
+        const text = card.innerText.toLowerCase();
+
+        const matchCat = (currentCategory === 'all' || cat === currentCategory);
+        const matchSearch = text.includes(searchVal);
+
+        if (matchCat && matchSearch) {
+            card.style.display = 'block';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}

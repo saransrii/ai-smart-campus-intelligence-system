@@ -1,0 +1,452 @@
+{% extends 'base.html' %}
+{% block title %}Smart Attendance – AI Smart Campus{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-lg-4 py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+        <div>
+            <h3 class="fw-bold text-gradient mb-1">
+                <i class="fa-solid fa-camera-viewfinder me-2"></i>Smart Attendance System
+            </h3>
+            <p class="text-muted small mb-0">Biometric Face Recognition & Automated Classroom Attendance Logging</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('api_export_attendance') }}" class="btn btn-outline-success btn-sm rounded-pill px-3 shadow-sm">
+                <i class="fa-solid fa-file-csv me-1"></i> Export Attendance CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Attendance Action Tabs -->
+    <ul class="nav nav-pills modern-pills mb-4" id="attendanceTabs" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" id="scanner-tab" data-bs-toggle="pill" data-bs-target="#scanner-content">
+                <i class="fa-solid fa-expand me-1"></i> AI Face Scanner
+            </button>
+        </li>
+        {% if current_user.role in ['faculty', 'admin'] %}
+        <li class="nav-item">
+            <button class="nav-link" id="manual-tab" data-bs-toggle="pill" data-bs-target="#manual-content">
+                <i class="fa-solid fa-pen-to-square me-1"></i> Manual Roster Entry
+            </button>
+        </li>
+        {% endif %}
+        <li class="nav-item">
+            <button class="nav-link" id="records-tab" data-bs-toggle="pill" data-bs-target="#records-content">
+                <i class="fa-solid fa-list-check me-1"></i> Attendance Records ({{ records|length }})
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="attendanceTabContent">
+        <!-- TAB 1: SMART FACE SCANNER -->
+        <div class="tab-pane fade show active" id="scanner-content" role="tabpanel">
+            <div class="row g-4">
+                <!-- Camera Viewport Card -->
+                <div class="col-lg-7">
+                    <div class="card card-glass border-0 shadow-sm overflow-hidden">
+                        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-3 px-4">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="pulse-indicator bg-danger" id="cameraPulse"></span>
+                                <span class="fw-bold" id="cameraStatusText">Camera Inactive</span>
+                            </div>
+                            <span class="badge bg-soft-primary text-primary">OpenCV Face Detection</span>
+                        </div>
+                        <div class="card-body p-4 text-center">
+                            <div class="camera-container mx-auto position-relative rounded-4 overflow-hidden shadow-sm" style="max-width: 580px; height: 380px; background: #0f172a;">
+                                <video id="webcamVideo" autoplay playsinline muted class="w-100 h-100" style="object-fit: cover; transform: scaleX(-1);"></video>
+                                <canvas id="captureCanvas" class="d-none"></canvas>
+                                
+                                <!-- Scanner Bounding Box Overlay -->
+                                <div class="scanner-overlay d-none" id="scannerOverlay">
+                                    <div class="scanner-frame">
+                                        <div class="scanner-laser"></div>
+                                        <div class="corner corner-tl"></div>
+                                        <div class="corner corner-tr"></div>
+                                        <div class="corner corner-bl"></div>
+                                        <div class="corner corner-br"></div>
+                                    </div>
+                                    <div class="scanner-instruction text-white small">
+                                        Align face inside the frame
+                                    </div>
+                                </div>
+
+                                <!-- Camera Off State Placeholder -->
+                                <div class="camera-placeholder d-flex flex-column align-items-center justify-content-center h-100 text-white-50 p-4" id="cameraPlaceholder">
+                                    <i class="fa-solid fa-camera-slash fs-1 mb-3"></i>
+                                    <h6>Camera is currently off</h6>
+                                    <p class="small text-muted mb-0">Select your course and click "Start Camera" to initialize the biometric scanner</p>
+                                </div>
+                            </div>
+
+                            <!-- Camera Control Buttons -->
+                            <div class="d-flex flex-wrap gap-2 justify-content-center mt-4">
+                                <button type="button" class="btn btn-primary rounded-pill px-4 fw-semibold" id="startCameraBtn" onclick="startCamera()">
+                                    <i class="fa-solid fa-video me-1"></i> Start Camera
+                                </button>
+                                <button type="button" class="btn btn-success rounded-pill px-4 fw-semibold d-none" id="captureBtn" onclick="captureAndScan()">
+                                    <i class="fa-solid fa-camera me-1"></i> Scan & Verify Face
+                                </button>
+                                <button type="button" class="btn btn-outline-danger rounded-pill px-3 d-none" id="stopCameraBtn" onclick="stopCamera()">
+                                    <i class="fa-solid fa-stop me-1"></i> Stop Camera
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scan Controls & Verification Result Card -->
+                <div class="col-lg-5">
+                    <div class="card card-glass border-0 shadow-sm mb-4">
+                        <div class="card-header bg-transparent border-0 pt-3 px-4">
+                            <h5 class="fw-bold mb-0"><i class="fa-solid fa-sliders text-primary me-2"></i>Scanner Settings</h5>
+                        </div>
+                        <div class="card-body px-4 pt-2">
+                            <!-- Course Select -->
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small fw-bold">Select Active Lecture / Course</label>
+                                <select class="form-select" id="scanCourseSelect">
+                                    {% for c in courses %}
+                                    <option value="{{ c.id }}">{{ c.course_code }} - {{ c.course_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+
+                            {% if current_user.role in ['faculty', 'admin'] %}
+                            <!-- Student Select (for Faculty Kiosk mode) -->
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small fw-bold">Target Student (Kiosk Roster Mode)</label>
+                                <select class="form-select" id="scanStudentSelect">
+                                    {% for s in students %}
+                                    <option value="{{ s.id }}">{{ s.roll_number }} - {{ s.name }} ({{ s.department }})</option>
+                                    {% endfor %}
+                                </select>
+                                <small class="text-muted font-xs">In student personal mode, this automatically maps to the signed-in student.</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Scan Results Box -->
+                    <div class="card card-glass border-0 shadow-sm">
+                        <div class="card-header bg-transparent border-0 pt-3 px-4">
+                            <h5 class="fw-bold mb-0"><i class="fa-solid fa-circle-check text-success me-2"></i>Verification Results</h5>
+                        </div>
+                        <div class="card-body px-4 pt-2" id="scanResultContainer">
+                            <div class="text-center py-4 text-muted" id="scanEmptyState">
+                                <i class="fa-regular fa-id-badge fs-2 mb-2 text-secondary"></i>
+                                <p class="small mb-0">No active scan yet. Click "Scan & Verify Face" to capture and evaluate the biometric feed.</p>
+                            </div>
+
+                            <div class="scan-result-card p-3 rounded-3 border d-none" id="scanResultCard">
+                                <div class="d-flex align-items-center gap-3 mb-3">
+                                    <div class="result-avatar-box" id="resultAvatar">
+                                        <i class="fa-solid fa-user-check text-white fs-4"></i>
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold text-dark mb-0" id="resultStudentName">Aarav Patel</h5>
+                                        <small class="text-muted" id="resultStudentRoll">CS2026001</small>
+                                    </div>
+                                    <span class="badge ms-auto" id="resultBadge">Present</span>
+                                </div>
+                                <div class="border-top pt-2">
+                                    <div class="d-flex justify-content-between small text-muted mb-1">
+                                        <span>Course:</span>
+                                        <strong class="text-dark" id="resultCourse">CS601</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between small text-muted mb-1">
+                                        <span>Confidence:</span>
+                                        <strong class="text-success" id="resultConfidence">98.4%</strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between small text-muted mb-1">
+                                        <span>Method:</span>
+                                        <span class="text-dark">OpenCV Haar Biometrics</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between small text-muted">
+                                        <span>Timestamp:</span>
+                                        <span class="text-dark" id="resultTimestamp">Just now</span>
+                                    </div>
+                                </div>
+                                <div class="alert mt-3 mb-0 py-2 small" id="resultMessageAlert"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: MANUAL ENTRY (FACULTY / ADMIN ONLY) -->
+        {% if current_user.role in ['faculty', 'admin'] %}
+        <div class="tab-pane fade" id="manual-content" role="tabpanel">
+            <div class="row justify-content-center">
+                <div class="col-lg-6">
+                    <div class="card card-glass border-0 shadow-sm p-4">
+                        <h5 class="fw-bold text-dark mb-3"><i class="fa-solid fa-pen-nib text-primary me-2"></i>Manual Attendance Override</h5>
+                        <form method="POST" action="{{ url_for('api_manual_mark') }}">
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small fw-bold">Select Student</label>
+                                <select name="student_id" class="form-select" required>
+                                    {% for s in students %}
+                                    <option value="{{ s.id }}">{{ s.roll_number }} - {{ s.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label text-secondary small fw-bold">Select Course</label>
+                                <select name="course_id" class="form-select" required>
+                                    {% for c in courses %}
+                                    <option value="{{ c.id }}">{{ c.course_code }} - {{ c.course_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label text-secondary small fw-bold">Date</label>
+                                    <input type="date" name="date" class="form-control" value="{{ now.strftime('%Y-%m-%d') }}" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label text-secondary small fw-bold">Status</label>
+                                    <select name="status" class="form-select">
+                                        <option value="Present" selected>Present</option>
+                                        <option value="Absent">Absent</option>
+                                        <option value="Late">Late</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary rounded-pill fw-semibold">
+                                    <i class="fa-solid fa-check me-2"></i> Save Attendance Entry
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- TAB 3: ATTENDANCE RECORDS TABLE -->
+        <div class="tab-pane fade" id="records-content" role="tabpanel">
+            <div class="card card-glass border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0 d-flex flex-wrap justify-content-between align-items-center pt-3 px-4 gap-2">
+                    <h5 class="fw-bold mb-0"><i class="fa-solid fa-database text-primary me-2"></i>Attendance Log History</h5>
+                    <div class="d-flex gap-2">
+                        <input type="text" id="recordsSearch" class="form-control form-control-sm rounded-pill" placeholder="Search by student, roll no or course..." onkeyup="filterRecordsTable()">
+                    </div>
+                </div>
+                <div class="card-body px-4 pt-2">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" id="attendanceTable">
+                            <thead class="text-muted small text-uppercase">
+                                <tr>
+                                    <th>Roll Number</th>
+                                    <th>Student Name</th>
+                                    <th>Course</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Method</th>
+                                    <th>Confidence</th>
+                                    <th>Logged At</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in records %}
+                                <tr>
+                                    <td><span class="badge bg-light text-dark fw-bold">{{ r.roll_number }}</span></td>
+                                    <td class="fw-semibold text-dark">{{ r.student_name }}</td>
+                                    <td>
+                                        <span class="fw-semibold">{{ r.course_code }}</span>
+                                        <span class="text-muted font-xs d-block">{{ r.course_name }}</span>
+                                    </td>
+                                    <td>{{ r.date }}</td>
+                                    <td>
+                                        {% if r.status == 'Present' %}
+                                            <span class="badge bg-soft-success text-success"><i class="fa-solid fa-check me-1"></i>Present</span>
+                                        {% elif r.status == 'Absent' %}
+                                            <span class="badge bg-soft-danger text-danger"><i class="fa-solid fa-xmark me-1"></i>Absent</span>
+                                        {% else %}
+                                            <span class="badge bg-soft-warning text-warning"><i class="fa-solid fa-clock me-1"></i>Late</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="small text-muted"><i class="fa-solid {% if r.method == 'Face Recognition' %}fa-camera-retro text-primary{% else %}fa-user-pen text-secondary{% endif %} me-1"></i>{{ r.method }}</span>
+                                    </td>
+                                    <td>
+                                        {% if r.confidence %}
+                                            <span class="small fw-semibold text-success">{{ r.confidence }}%</span>
+                                        {% else %}
+                                            <span class="small text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="small text-muted">{{ r.timestamp }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-muted">No attendance records found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let videoStream = null;
+
+async function startCamera() {
+    const video = document.getElementById('webcamVideo');
+    const placeholder = document.getElementById('cameraPlaceholder');
+    const overlay = document.getElementById('scannerOverlay');
+    const startBtn = document.getElementById('startCameraBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const stopBtn = document.getElementById('stopCameraBtn');
+    const pulse = document.getElementById('cameraPulse');
+    const statusText = document.getElementById('cameraStatusText');
+
+    try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: "user" }
+        });
+        video.srcObject = videoStream;
+
+        placeholder.classList.add('d-none');
+        overlay.classList.remove('d-none');
+        startBtn.classList.add('d-none');
+        captureBtn.classList.remove('d-none');
+        stopBtn.classList.remove('d-none');
+
+        pulse.classList.remove('bg-danger');
+        pulse.classList.add('bg-success');
+        statusText.innerText = "Camera Active • Face Recognition Ready";
+    } catch (err) {
+        alert("Camera access denied or unavailable: " + err.message + "\nPlease allow camera permissions in your browser.");
+        console.error(err);
+    }
+}
+
+function stopCamera() {
+    if (videoStream) {
+        videoStream.getTracks().forEach(track => track.stop());
+        videoStream = null;
+    }
+    const video = document.getElementById('webcamVideo');
+    video.srcObject = null;
+
+    document.getElementById('cameraPlaceholder').classList.remove('d-none');
+    document.getElementById('scannerOverlay').classList.add('d-none');
+    document.getElementById('startCameraBtn').classList.remove('d-none');
+    document.getElementById('captureBtn').classList.add('d-none');
+    document.getElementById('stopCameraBtn').classList.add('d-none');
+
+    const pulse = document.getElementById('cameraPulse');
+    pulse.classList.remove('bg-success');
+    pulse.classList.add('bg-danger');
+    document.getElementById('cameraStatusText').innerText = "Camera Inactive";
+}
+
+async function captureAndScan() {
+    const video = document.getElementById('webcamVideo');
+    const canvas = document.getElementById('captureCanvas');
+    const courseId = document.getElementById('scanCourseSelect').value;
+    const studentSelect = document.getElementById('scanStudentSelect');
+    const studentId = studentSelect ? studentSelect.value : null;
+
+    if (!videoStream) {
+        alert("Please start the camera first.");
+        return;
+    }
+
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const base64Image = canvas.toDataURL('image/jpeg', 0.85);
+
+    const captureBtn = document.getElementById('captureBtn');
+    captureBtn.disabled = true;
+    captureBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Processing...';
+
+    try {
+        const response = await fetch('/api/attendance/face-scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                image: base64Image,
+                course_id: courseId,
+                student_id: studentId
+            })
+        });
+
+        const data = await response.json();
+        displayScanResult(data);
+    } catch (err) {
+        alert("Error submitting face scan: " + err.message);
+    } finally {
+        captureBtn.disabled = false;
+        captureBtn.innerHTML = '<i class="fa-solid fa-camera me-1"></i> Scan & Verify Face';
+    }
+}
+
+function displayScanResult(res) {
+    const emptyState = document.getElementById('scanEmptyState');
+    const card = document.getElementById('scanResultCard');
+    const alertBox = document.getElementById('resultMessageAlert');
+
+    emptyState.classList.add('d-none');
+    card.classList.remove('d-none');
+
+    if (res.success) {
+        document.getElementById('resultStudentName').innerText = res.student ? res.student.name : 'Verified';
+        document.getElementById('resultStudentRoll').innerText = res.student ? res.student.roll_number : '';
+        document.getElementById('resultCourse').innerText = res.course || 'Selected Course';
+        document.getElementById('resultConfidence').innerText = (res.confidence || 96.5) + '%';
+        document.getElementById('resultTimestamp').innerText = res.timestamp || 'Just now';
+
+        const badge = document.getElementById('resultBadge');
+        const avatar = document.getElementById('resultAvatar');
+
+        if (res.already_marked) {
+            badge.className = 'badge bg-soft-warning text-warning';
+            badge.innerText = 'Already Marked';
+            avatar.style.background = '#f59e0b';
+            alertBox.className = 'alert alert-warning mt-3 mb-0 py-2 small';
+        } else {
+            badge.className = 'badge bg-soft-success text-success';
+            badge.innerText = 'Present';
+            avatar.style.background = '#10b981';
+            alertBox.className = 'alert alert-success mt-3 mb-0 py-2 small';
+        }
+        alertBox.innerText = res.message;
+    } else {
+        const badge = document.getElementById('resultBadge');
+        const avatar = document.getElementById('resultAvatar');
+        badge.className = 'badge bg-soft-danger text-danger';
+        badge.innerText = 'Verification Failed';
+        avatar.style.background = '#ef4444';
+        
+        document.getElementById('resultStudentName').innerText = 'Detection Unsuccessful';
+        document.getElementById('resultStudentRoll').innerText = 'No match';
+        document.getElementById('resultConfidence').innerText = '0%';
+        alertBox.className = 'alert alert-danger mt-3 mb-0 py-2 small';
+        alertBox.innerText = res.message || 'Face detection failed.';
+    }
+}
+
+function filterRecordsTable() {
+    const input = document.getElementById('recordsSearch').value.toLowerCase();
+    const rows = document.querySelectorAll('#attendanceTable tbody tr');
+
+    rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(input) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,405 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard – AI Smart Campus{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-lg-4 py-4">
+    <!-- Welcome Header Banner -->
+    <div class="card banner-hero border-0 shadow-sm mb-4">
+        <div class="card-body p-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="banner-avatar">
+                    <i class="fa-solid {% if current_user.role == 'student' %}fa-user-graduate{% elif current_user.role == 'faculty' %}fa-chalkboard-user{% else %}fa-user-shield{% endif %}"></i>
+                </div>
+                <div>
+                    <div class="d-flex align-items-center gap-2 mb-1">
+                        <h4 class="fw-bold mb-0 text-white">Welcome back, {{ current_user.name }}!</h4>
+                        <span class="badge badge-role-{{ current_user.role }}">{{ current_user.role|upper }}</span>
+                    </div>
+                    <p class="text-white-50 small mb-0">
+                        <i class="fa-regular fa-building me-1"></i> {{ current_user.department or 'Campus Administration' }} 
+                        {% if current_user.role == 'student' %}
+                            • <i class="fa-solid fa-id-card me-1"></i> Roll No: <strong>{{ current_user.roll_number }}</strong> • Semester {{ current_user.semester }}
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="{{ url_for('attendance') }}" class="btn btn-light btn-sm px-3 fw-semibold shadow-sm">
+                    <i class="fa-solid fa-camera me-1 text-primary"></i> Smart Attendance
+                </a>
+                <a href="{{ url_for('chatbot') }}" class="btn btn-outline-light btn-sm px-3 fw-semibold">
+                    <i class="fa-solid fa-robot me-1"></i> AI Assistant
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- STUDENT SPECIFIC DASHBOARD -->
+    {% if current_user.role == 'student' %}
+    <!-- Stat Metric Cards -->
+    <div class="row g-3 mb-4">
+        <!-- Attendance Metric -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Overall Attendance</span>
+                        <div class="stat-icon-pill bg-soft-primary">
+                            <i class="fa-solid fa-chart-simple text-primary"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1 {% if data.overall_attendance >= 75 %}text-success{% else %}text-danger{% endif %}">
+                        {{ data.overall_attendance }}%
+                    </h3>
+                    <div class="progress progress-thin mb-2">
+                        <div class="progress-bar {% if data.overall_attendance >= 75 %}bg-success{% else %}bg-danger{% endif %}" 
+                             style="width: {{ data.overall_attendance }}%"></div>
+                    </div>
+                    <small class="text-muted font-xs">
+                        {% if data.overall_attendance >= 75 %}
+                            <i class="fa-solid fa-circle-check text-success me-1"></i> Eligible for exams (min 75%)
+                        {% else %}
+                            <i class="fa-solid fa-triangle-exclamation text-danger me-1"></i> Low attendance warning!
+                        {% endif %}
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attended Sessions -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Attended Sessions</span>
+                        <div class="stat-icon-pill bg-soft-success">
+                            <i class="fa-solid fa-calendar-check text-success"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-dark">{{ data.attended_sessions }} / {{ data.total_sessions }}</h3>
+                    <p class="text-muted small mb-0">Total classroom lectures logged via Smart Scanner</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Academic CGPA -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Cumulative CGPA</span>
+                        <div class="stat-icon-pill bg-soft-warning">
+                            <i class="fa-solid fa-award text-warning"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-dark">{{ current_user.cgpa or '8.85' }} / 10.0</h3>
+                    <small class="text-success font-xs"><i class="fa-solid fa-arrow-trend-up me-1"></i> Top 10% in Department</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upcoming Exam Count -->
+        <div class="col-sm-6 col-xl-3">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Upcoming Exams</span>
+                        <div class="stat-icon-pill bg-soft-info">
+                            <i class="fa-regular fa-clock text-info"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-dark">{{ data.exams|length }} Scheduled</h3>
+                    <small class="text-muted font-xs"><i class="fa-solid fa-calendar-day me-1"></i> Starts Nov 10, 2026</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="row g-4 mb-4">
+        <!-- Subject Attendance Breakdown -->
+        <div class="col-lg-7">
+            <div class="card card-glass border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-3 px-4">
+                    <h5 class="fw-bold mb-0">
+                        <i class="fa-solid fa-book-open-reader text-primary me-2"></i>Subject-Wise Attendance
+                    </h5>
+                    <a href="{{ url_for('attendance') }}" class="btn btn-sm btn-outline-primary rounded-pill">
+                        Full Logs <i class="fa-solid fa-arrow-right ms-1"></i>
+                    </a>
+                </div>
+                <div class="card-body px-4 pt-2">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="text-muted small text-uppercase">
+                                <tr>
+                                    <th>Course Code & Name</th>
+                                    <th>Sessions</th>
+                                    <th style="min-width: 140px;">Percentage</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for c in data.course_attendance %}
+                                {% set pct = ((c.attended or 0) / (c.total_sessions or 1) * 100)|round(1) %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold text-dark">{{ c.course_code }}</div>
+                                        <div class="text-muted small">{{ c.course_name }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">{{ c.attended or 0 }} / {{ c.total_sessions or 0 }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress flex-grow-1" style="height: 6px;">
+                                                <div class="progress-bar {% if pct >= 75 %}bg-primary{% else %}bg-danger{% endif %}" style="width: {{ pct }}%"></div>
+                                            </div>
+                                            <span class="small fw-bold">{{ pct }}%</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if pct >= 75 %}
+                                            <span class="badge bg-soft-success text-success"><i class="fa-solid fa-check me-1"></i>Good</span>
+                                        {% else %}
+                                            <span class="badge bg-soft-danger text-danger"><i class="fa-solid fa-triangle-exclamation me-1"></i>Low</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upcoming Exam Timetable -->
+        <div class="col-lg-5">
+            <div class="card card-glass border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-3 px-4">
+                    <h5 class="fw-bold mb-0">
+                        <i class="fa-solid fa-calendar-days text-info me-2"></i>Examination Schedule
+                    </h5>
+                    <span class="badge bg-soft-info text-info">Semester {{ current_user.semester or 6 }}</span>
+                </div>
+                <div class="card-body px-4 pt-2">
+                    <div class="timeline-exam">
+                        {% for exam in data.exams %}
+                        <div class="exam-timeline-item d-flex gap-3 mb-3 pb-2 border-bottom">
+                            <div class="exam-date-box text-center p-2 rounded-3 bg-soft-primary">
+                                <span class="d-block small text-primary fw-bold">{{ exam.exam_date.split('-')[2] }}</span>
+                                <span class="d-block font-xs text-muted text-uppercase">NOV</span>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <h6 class="fw-bold text-dark mb-1">{{ exam.course_code }}: {{ exam.exam_name }}</h6>
+                                </div>
+                                <div class="text-muted small d-flex flex-wrap gap-2">
+                                    <span><i class="fa-regular fa-clock me-1"></i>{{ exam.start_time }} - {{ exam.end_time }}</span>
+                                    <span>•</span>
+                                    <span><i class="fa-solid fa-location-dot me-1 text-danger"></i>{{ exam.hall }}</span>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- FACULTY & ADMIN DASHBOARD -->
+    {% else %}
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-3">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Total Students</span>
+                        <div class="stat-icon-pill bg-soft-primary">
+                            <i class="fa-solid fa-user-graduate text-primary"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-dark">{{ data.total_students }}</h3>
+                    <small class="text-muted font-xs"><i class="fa-solid fa-circle-check text-success me-1"></i>Active Enrollment</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Faculty Staff</span>
+                        <div class="stat-icon-pill bg-soft-info">
+                            <i class="fa-solid fa-chalkboard-user text-info"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-dark">{{ data.total_faculty }}</h3>
+                    <small class="text-muted font-xs">All Departments</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Campus Attendance Rate</span>
+                        <div class="stat-icon-pill bg-soft-success">
+                            <i class="fa-solid fa-chart-line text-success"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-success">{{ data.campus_attendance_rate }}%</h3>
+                    <div class="progress progress-thin mb-1">
+                        <div class="progress-bar bg-success" style="width: {{ data.campus_attendance_rate }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-sm-6 col-xl-3">
+            <div class="card card-stat border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-muted small fw-semibold">Courses Offered</span>
+                        <div class="stat-icon-pill bg-soft-warning">
+                            <i class="fa-solid fa-book text-warning"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1 text-dark">{{ data.total_courses }}</h3>
+                    <small class="text-muted font-xs">Curriculum 2026–2027</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Attendance Logs & Management -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="card card-glass border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-3 px-4">
+                    <h5 class="fw-bold mb-0">
+                        <i class="fa-solid fa-clock-rotate-left text-primary me-2"></i>Recent Attendance Activity
+                    </h5>
+                    <a href="{{ url_for('attendance') }}" class="btn btn-sm btn-outline-primary rounded-pill">Manage All</a>
+                </div>
+                <div class="card-body px-4 pt-2">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="text-muted small text-uppercase">
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Course</th>
+                                    <th>Method</th>
+                                    <th>Status</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in data.today_logs %}
+                                <tr>
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ log.student_name }}</div>
+                                        <div class="text-muted font-xs">{{ log.roll_number }}</div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-light text-dark">{{ log.course_code }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="small text-muted"><i class="fa-solid fa-camera-retro me-1"></i>{{ log.method }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-soft-success text-success">{{ log.status }}</span>
+                                    </td>
+                                    <td class="small text-muted">{{ log.timestamp.split(' ')[1] if ' ' in log.timestamp else log.timestamp }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4 text-muted">No attendance logs yet for today. Use the Smart Scanner to record sessions!</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card card-glass border-0 shadow-sm h-100">
+                <div class="card-header bg-transparent border-0 pt-3 px-4">
+                    <h5 class="fw-bold mb-0">
+                        <i class="fa-solid fa-bolt text-warning me-2"></i>Quick Operations
+                    </h5>
+                </div>
+                <div class="card-body px-4 pt-2 d-flex flex-column gap-3">
+                    <a href="{{ url_for('attendance') }}" class="quick-action-card d-flex align-items-center gap-3 p-3 rounded-3 text-decoration-none">
+                        <div class="action-icon bg-soft-primary text-primary">
+                            <i class="fa-solid fa-camera"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-dark">Launch Smart Scanner</div>
+                            <small class="text-muted">Open webcam biometric face identification</small>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('notifications') }}" class="quick-action-card d-flex align-items-center gap-3 p-3 rounded-3 text-decoration-none">
+                        <div class="action-icon bg-soft-danger text-danger">
+                            <i class="fa-solid fa-bullhorn"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-dark">Publish Announcement</div>
+                            <small class="text-muted">Broadcast notices to students & faculty</small>
+                        </div>
+                    </a>
+
+                    <a href="{{ url_for('analytics') }}" class="quick-action-card d-flex align-items-center gap-3 p-3 rounded-3 text-decoration-none">
+                        <div class="action-icon bg-soft-info text-info">
+                            <i class="fa-solid fa-chart-pie"></i>
+                        </div>
+                        <div>
+                            <div class="fw-bold text-dark">View Campus Analytics</div>
+                            <small class="text-muted">Inspect trends, CGPA & department charts</small>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Notices Banner -->
+    <div class="card card-glass border-0 shadow-sm mb-4">
+        <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center pt-3 px-4">
+            <h5 class="fw-bold mb-0">
+                <i class="fa-solid fa-bullhorn text-danger me-2"></i>Campus Announcements & Circulars
+            </h5>
+            <a href="{{ url_for('notifications') }}" class="btn btn-sm btn-outline-primary rounded-pill">View Notice Board</a>
+        </div>
+        <div class="card-body px-4 pt-2">
+            <div class="row g-3">
+                {% for n in data.notifications %}
+                <div class="col-md-6">
+                    <div class="notice-card-mini p-3 rounded-3 border h-100 d-flex flex-column justify-content-between">
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge badge-category-{{ n.category|lower }}">{{ n.category }}</span>
+                                <span class="badge badge-priority-{{ n.priority|lower }}">{{ n.priority }}</span>
+                            </div>
+                            <h6 class="fw-bold text-dark mb-1">{{ n.title }}</h6>
+                            <p class="text-muted small mb-3">{{ n.content|truncate(120) }}</p>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center font-xs text-muted pt-2 border-top">
+                            <span><i class="fa-solid fa-user-pen me-1"></i>{{ n.author_name or 'Administration' }}</span>
+                            <span>{{ n.created_at.split(' ')[0] if n.created_at else 'Today' }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+
+# Database (optional - keep smart_campus.db or ignore if regenerating)
+*.sqlite3
+
+# OS / IDE
+.vscode/
+.idea/
+*.swp
+*.DS_Store
+Thumbs.db

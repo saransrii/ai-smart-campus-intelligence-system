@@ -1,0 +1,75 @@
+{% extends 'base.html' %}
+{% block title %}My Profile – AI Smart Campus{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card card-glass border-0 shadow-lg p-4 p-md-5">
+                <div class="d-flex flex-column flex-sm-row align-items-center gap-4 pb-4 border-bottom">
+                    <div class="user-avatar-lg position-relative">
+                        <i class="fa-solid fa-user text-white fs-1"></i>
+                        <span class="biometric-badge-verified" title="Biometric Face Enrolled">
+                            <i class="fa-solid fa-fingerprint"></i>
+                        </span>
+                    </div>
+                    <div class="text-center text-sm-start">
+                        <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-sm-start gap-2 mb-1">
+                            <h3 class="fw-bold text-dark mb-0">{{ user.name }}</h3>
+                            <span class="badge badge-role-{{ user.role }}">{{ user.role|upper }}</span>
+                        </div>
+                        <p class="text-muted small mb-1">
+                            <i class="fa-solid fa-envelope me-1"></i> {{ user.email }}
+                        </p>
+                        <p class="text-muted small mb-0">
+                            <i class="fa-solid fa-building-columns me-1"></i> {{ user.department }}
+                            {% if user.role == 'student' %}
+                            • <i class="fa-solid fa-graduation-cap me-1"></i> Semester {{ user.semester }}
+                            {% endif %}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="row g-4 pt-4">
+                    <div class="col-md-6">
+                        <label class="form-label text-secondary small fw-bold">Roll / Identity Number</label>
+                        <input type="text" class="form-control bg-light" value="{{ user.roll_number or 'STAFF-AUTH' }}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-secondary small fw-bold">Primary Email</label>
+                        <input type="text" class="form-control bg-light" value="{{ user.email }}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-secondary small fw-bold">Assigned Department</label>
+                        <input type="text" class="form-control bg-light" value="{{ user.department }}" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-secondary small fw-bold">Contact Number</label>
+                        <input type="text" class="form-control bg-light" value="{{ user.phone }}" readonly>
+                    </div>
+                    {% if user.role == 'student' %}
+                    <div class="col-md-6">
+                        <label class="form-label text-secondary small fw-bold">Current CGPA</label>
+                        <input type="text" class="form-control bg-light" value="{{ user.cgpa or '8.85' }} / 10.0" readonly>
+                    </div>
+                    {% endif %}
+                    <div class="col-md-6">
+                        <label class="form-label text-secondary small fw-bold">Biometric Attendance Status</label>
+                        <div class="d-flex align-items-center gap-2 p-2 rounded-3 bg-soft-success text-success fw-semibold small">
+                            <i class="fa-solid fa-circle-check"></i>
+                            <span>Face Profile Registered & Active</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-3 border-top d-flex justify-content-between align-items-center">
+                    <span class="text-muted font-xs">Account created: {{ user.created_at }}</span>
+                    <a href="{{ url_for('attendance') }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+                        <i class="fa-solid fa-camera me-1"></i> Test Smart Scanner
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

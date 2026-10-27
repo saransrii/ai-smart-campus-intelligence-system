@@ -1,0 +1,349 @@
+{% extends 'base.html' %}
+{% block title %}AI Chatbot – AI Smart Campus{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-lg-4 py-4">
+    <div class="row justify-content-center">
+        <div class="col-xl-9 col-lg-10">
+            <div class="card card-glass border-0 shadow-lg chatbot-full-card overflow-hidden">
+                <!-- Chatbot Header -->
+                <div class="card-header bg-transparent border-bottom p-3 px-4 d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="ai-avatar-pulse">
+                            <i class="fa-solid fa-robot"></i>
+                        </div>
+                        <div>
+                            <h5 class="fw-bold mb-0 text-dark">Campus AI Intelligence Assistant</h5>
+                            <small class="text-success"><i class="fa-solid fa-circle font-xs me-1"></i>Active & Listening • NLP Engine Ready</small>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button class="btn btn-outline-secondary btn-sm rounded-pill" onclick="clearFullChat()" title="Reset Chat History">
+                            <i class="fa-solid fa-rotate-left me-1"></i> Clear Chat
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Chat Messages Scroll Area -->
+                <div class="card-body p-4 chatbot-body" id="fullChatBody">
+                    <!-- Initial Welcome Message -->
+                    <div class="chat-message ai-message-bubble mb-3">
+                        <div class="d-flex gap-3">
+                            <div class="chat-avatar bg-primary text-white">
+                                <i class="fa-solid fa-robot"></i>
+                            </div>
+                            <div class="message-content">
+                                <div class="message-meta d-flex align-items-center gap-2 mb-1">
+                                    <span class="fw-bold text-dark font-xs">Smart Campus AI</span>
+                                    <span class="badge bg-soft-primary text-primary font-xs">NLP Core</span>
+                                    <span class="text-muted font-xs">Just now</span>
+                                </div>
+                                <div class="bubble-box p-3 rounded-4 bg-soft-primary text-dark shadow-sm">
+                                    <p class="mb-2">Hello <strong>{{ session.get('name') }}</strong>! 🎓 I am your AI Smart Campus conversational assistant.</p>
+                                    <p class="mb-0">You can ask me questions about your <strong>attendance statistics</strong>, <strong>examination timetables</strong>, <strong>recent campus notices</strong>, <strong>library hours</strong>, <strong>scholarships</strong>, or <strong>academic policies</strong>.</p>
+                                </div>
+                                <div class="d-flex align-items-center gap-2 mt-2">
+                                    <button class="btn btn-sm btn-light border font-xs py-0 px-2 rounded-pill" onclick="speakText(this)">
+                                        <i class="fa-solid fa-volume-high me-1"></i> Read Out
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Suggested Query Chips Bar -->
+                <div class="px-4 py-2 border-top bg-light bg-opacity-50">
+                    <div class="d-flex align-items-center gap-2 overflow-x-auto pb-1" id="suggestionChipsContainer">
+                        <span class="font-xs text-muted fw-bold text-nowrap"><i class="fa-solid fa-wand-magic-sparkles me-1 text-primary"></i>Suggested:</span>
+                        <button class="chip-btn text-nowrap" onclick="populateAndSend('What is my attendance?')">📊 My Attendance</button>
+                        <button class="chip-btn text-nowrap" onclick="populateAndSend('When are semester exams scheduled?')">📝 Exam Schedule</button>
+                        <button class="chip-btn text-nowrap" onclick="populateAndSend('Show recent notices')">🔔 Latest Notices</button>
+                        <button class="chip-btn text-nowrap" onclick="populateAndSend('What are the Central Library timings?')">📚 Library Hours</button>
+                        <button class="chip-btn text-nowrap" onclick="populateAndSend('Where can I find placement drive updates?')">💼 Placements</button>
+                        <button class="chip-btn text-nowrap" onclick="populateAndSend('What is the Wi-Fi password for students?')">📶 Campus Wi-Fi</button>
+                        <button class="chip-btn text-nowrap" onclick="populateAndSend('What happens if attendance is below 75%?')">⚠️ Attendance Rules</button>
+                    </div>
+                </div>
+
+                <!-- Chat Input Footer -->
+                <div class="card-footer bg-transparent border-top p-3 px-4">
+                    <form id="chatForm" onsubmit="handleChatSubmit(event)" class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-outline-secondary rounded-circle" id="micBtn" onclick="toggleVoiceRecognition()" title="Voice Dictation">
+                            <i class="fa-solid fa-microphone" id="micIcon"></i>
+                        </button>
+                        
+                        <input type="text" id="chatInput" class="form-control rounded-pill px-3 py-2" placeholder="Ask questions about your courses, attendance, exams..." autocomplete="off" required>
+                        
+                        <button type="submit" class="btn btn-primary rounded-pill px-4 py-2 fw-semibold" id="sendBtn">
+                            <span>Send</span> <i class="fa-solid fa-paper-plane ms-1"></i>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let recognition = null;
+let isListening = false;
+
+// Initialize Speech Recognition if supported
+if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+
+    recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        document.getElementById('chatInput').value = transcript;
+        toggleVoiceRecognition();
+        handleChatSubmit(new Event('submit'));
+    };
+
+    recognition.onerror = function(event) {
+        console.error("Speech recognition error:", event.error);
+        toggleVoiceRecognition();
+    };
+
+    recognition.onend = function() {
+        if (isListening) toggleVoiceRecognition();
+    };
+}
+
+function toggleVoiceRecognition() {
+    if (!recognition) {
+        alert("Voice recognition is not supported in this browser. Please use Chrome or Edge.");
+        return;
+    }
+    const micBtn = document.getElementById('micBtn');
+    const micIcon = document.getElementById('micIcon');
+
+    if (!isListening) {
+        recognition.start();
+        isListening = true;
+        micBtn.classList.add('btn-danger', 'pulse-mic');
+        micIcon.classList.replace('fa-microphone', 'fa-microphone-slash');
+    } else {
+        recognition.stop();
+        isListening = false;
+        micBtn.classList.remove('btn-danger', 'pulse-mic');
+        micIcon.classList.replace('fa-microphone-slash', 'fa-microphone');
+    }
+}
+
+function formatMarkdown(text) {
+    // Basic Markdown format helper
+    let formatted = text
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/\n\n/g, '<br><br>')
+        .replace(/\n• /g, '<br>• ')
+        .replace(/\n- /g, '<br>• ')
+        .replace(/\n/g, '<br>');
+    return formatted;
+}
+
+function speakText(btn) {
+    const textBubble = btn.closest('.message-content').querySelector('.bubble-box');
+    const textToSpeak = textBubble.innerText;
+
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+    } else {
+        alert("Text-to-speech is not supported by your browser.");
+    }
+}
+
+function playBeep() {
+    try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+        gain.gain.setValueAtTime(0.04, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+    } catch (e) {}
+}
+
+function populateAndSend(query) {
+    document.getElementById('chatInput').value = query;
+    handleChatSubmit(new Event('submit'));
+}
+
+async function handleChatSubmit(e) {
+    e.preventDefault();
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    input.value = '';
+    appendUserMessage(text);
+
+    // Show AI typing placeholder
+    const typingId = appendTypingIndicator();
+    scrollChatBottom();
+
+    try {
+        const res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text })
+        });
+        const data = await res.json();
+        removeTypingIndicator(typingId);
+
+        if (data.success) {
+            appendAiMessage(data.answer, data.confidence, data.suggestions);
+            playBeep();
+        } else {
+            appendAiMessage("Sorry, I could not process your query at this moment.", 0, []);
+        }
+    } catch (err) {
+        removeTypingIndicator(typingId);
+        appendAiMessage("Network communication error. Please check your connection.", 0, []);
+    }
+
+    scrollChatBottom();
+}
+
+function appendUserMessage(text) {
+    const body = document.getElementById('fullChatBody');
+    const msg = document.createElement('div');
+    msg.className = 'chat-message user-message-bubble mb-3';
+    msg.innerHTML = `
+        <div class="d-flex justify-content-end gap-3">
+            <div class="message-content text-end">
+                <div class="message-meta d-flex justify-content-end align-items-center gap-2 mb-1">
+                    <span class="text-muted font-xs">You</span>
+                </div>
+                <div class="bubble-box p-3 rounded-4 bg-primary text-white text-start shadow-sm d-inline-block">
+                    ${text}
+                </div>
+            </div>
+            <div class="chat-avatar bg-secondary text-white">
+                <i class="fa-solid fa-user"></i>
+            </div>
+        </div>
+    `;
+    body.appendChild(msg);
+}
+
+function appendTypingIndicator() {
+    const body = document.getElementById('fullChatBody');
+    const id = 'typing-' + Date.now();
+    const div = document.createElement('div');
+    div.id = id;
+    div.className = 'chat-message ai-message-bubble mb-3';
+    div.innerHTML = `
+        <div class="d-flex gap-3">
+            <div class="chat-avatar bg-primary text-white">
+                <i class="fa-solid fa-robot"></i>
+            </div>
+            <div class="bubble-box p-3 rounded-4 bg-soft-primary text-dark">
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+            </div>
+        </div>
+    `;
+    body.appendChild(div);
+    return id;
+}
+
+function removeTypingIndicator(id) {
+    const el = document.getElementById(id);
+    if (el) el.remove();
+}
+
+function appendAiMessage(answer, confidence, suggestions) {
+    const body = document.getElementById('fullChatBody');
+    const msg = document.createElement('div');
+    msg.className = 'chat-message ai-message-bubble mb-3';
+
+    const formattedAnswer = formatMarkdown(answer);
+    let suggestionHtml = '';
+    if (suggestions && suggestions.length > 0) {
+        suggestionHtml = `
+            <div class="d-flex flex-wrap gap-1 mt-2 pt-2 border-top">
+                ${suggestions.map(s => `<button class="chip-btn font-xs" onclick="populateAndSend('${s.replace(/'/g, "\\'")}')">${s}</button>`).join('')}
+            </div>
+        `;
+    }
+
+    msg.innerHTML = `
+        <div class="d-flex gap-3">
+            <div class="chat-avatar bg-primary text-white">
+                <i class="fa-solid fa-robot"></i>
+            </div>
+            <div class="message-content" style="max-width: 82%;">
+                <div class="message-meta d-flex align-items-center gap-2 mb-1">
+                    <span class="fw-bold text-dark font-xs">Smart Campus AI</span>
+                    <span class="badge bg-soft-success text-success font-xs">${confidence}% confidence</span>
+                    <span class="text-muted font-xs">Just now</span>
+                </div>
+                <div class="bubble-box p-3 rounded-4 bg-soft-primary text-dark shadow-sm">
+                    <div>${formattedAnswer}</div>
+                    ${suggestionHtml}
+                </div>
+                <div class="d-flex align-items-center gap-2 mt-2">
+                    <button class="btn btn-sm btn-light border font-xs py-0 px-2 rounded-pill" onclick="speakText(this)">
+                        <i class="fa-solid fa-volume-high me-1"></i> Read Out
+                    </button>
+                    <button class="btn btn-sm btn-light border font-xs py-0 px-2 rounded-pill" onclick="copyMessageText(this)">
+                        <i class="fa-regular fa-copy me-1"></i> Copy
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    body.appendChild(msg);
+}
+
+function copyMessageText(btn) {
+    const textBubble = btn.closest('.message-content').querySelector('.bubble-box');
+    navigator.clipboard.writeText(textBubble.innerText);
+    btn.innerHTML = '<i class="fa-solid fa-check me-1 text-success"></i> Copied!';
+    setTimeout(() => {
+        btn.innerHTML = '<i class="fa-regular fa-copy me-1"></i> Copy';
+    }, 2000);
+}
+
+function clearFullChat() {
+    const body = document.getElementById('fullChatBody');
+    body.innerHTML = `
+        <div class="chat-message ai-message-bubble mb-3">
+            <div class="d-flex gap-3">
+                <div class="chat-avatar bg-primary text-white">
+                    <i class="fa-solid fa-robot"></i>
+                </div>
+                <div class="message-content">
+                    <div class="bubble-box p-3 rounded-4 bg-soft-primary text-dark shadow-sm">
+                        Chat history cleared. How else can I assist you with the campus today?
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function scrollChatBottom() {
+    const body = document.getElementById('fullChatBody');
+    body.scrollTop = body.scrollHeight;
+}
+</script>
+{% endblock %}
